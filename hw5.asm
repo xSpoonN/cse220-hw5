@@ -219,9 +219,17 @@ add_polynomial:  #a0 = polynomial 1, a1 = polynomial 2
 	j apnullpass
 	apnullcheck1:
 		beqz $t1 apbothnull
+		move $a0 $a1                  # arg1 = polynomial
+		move $s0 $ra                  # Preserves ra
+		jal sort_polynomial
+		move $ra $s0                  # Restores ra
 		move $v0 $a1                  # Return second polynomial if the second is not null
 	apnullcheck2:
-		move $v0 $a0                  # Return first polynomial, since at this point the first polynomial is known to be not null
+		move $s0 $ra                  # Preserves ra
+		move $s1 $a0                  # Preserves a0
+		jal sort_polynomial
+		move $ra $s0                  # Restores ra
+		move $v0 $s1                  # Return first polynomial, since at this point the first polynomial is known to be not null
 	apbothnull:
 		li $a0 8
 		li $v0 9                      # Syscall, allocates 8 bytes of heap memory
@@ -284,5 +292,6 @@ mult_polynomial: #a0 = polynomial 1, a1 = polynomial 2
 	# First check for null polynomials, handle them accordingly.
 	# Use 2 nested loops to multiply every term of polynomial 1 with every term of polynomial 2, storing their result in the stack.
 	# Call create_polynomial on the stack. Then call sort_polynomial to sort it.
+	# This function should be the same idea as add_polynomial, only that it multiplies the terms with each other first before storing them in the stack.
 	
   jr $ra
