@@ -212,13 +212,11 @@ add_polynomial:  #a0 = polynomial 1, a1 = polynomial 2
 	sw $s0 0($sp)              # Preserve s0 on stack
 	sw $s1 4($sp)              # Preserve s1 on stack
 	sw $s2 8($sp)              # Preserve s2 on stack
-	lw $t0 0($a0)              # Loads head pointer of polynomial 1
-	lw $t1 0($a1)              # Loads head pointer of polynomial 2
-	beqz $t0 apnullcheck1
-	beqz $t1 apnullcheck2
+	beqz $a0 apnullcheck1      # arg0 is 0
+	beqz $a1 apnullcheck2      # arg1 is 0
 	j apnullpass
 	apnullcheck1:
-		beqz $t1 apbothnull
+		beqz $a1 apbothnull
 		move $a0 $a1                  # arg1 = polynomial
 		move $s0 $ra                  # Preserves ra
 		jal sort_polynomial
