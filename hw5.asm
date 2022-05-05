@@ -71,7 +71,21 @@ create_polynomial: # a0 = int[] terms
 		move $ra $s3           # Restores ra
 		move $a0 $s2           # Restores a0
 		bnez $v0 cploop2       # If the term already exists, then skip and go to the next term
-		move $t8 $s0           # Makes note of current location in array
+		
+		# If the term is cancelled out, then there is no way to check if it already exists. Therefore, it will just add it regardless cause it couldn't find a preexisting occurance.
+		# How to fix this: Loop through the previous terms in the input array to see if the exponent existed previously. If it occurred before, that means
+		# it must have been cancelled out, and this term is not to be considered.
+		move $t5 $a0           # Makes a copy of the terms[] start to use as a counter
+		addi $t8 $s0 -8        # Function previously goes to the next pair immediately. This would cause errors so it is adjusted.
+		cpcancelled:
+			beq $t8 $t5 cpsafe # If the loop has reached the current term and not found any matches, then it is safe to continue.
+			lw $t7 4($t5)      # Loads the exponent of the term
+			beq $t7 $t3 cploop2         # An exponent of a previous pair has matched the current exponent, therefore it has previously been cancelled out.
+			addi $t5 $t5 8     # Goes to check the next pair
+			j cpcancelled
+			
+		cpsafe:
+		move $t8 $s0
 		move $t9 $s1           # Makes note of current pairs remaining in the input
 		cploop3: #Otherwise, loop through the entire rest of the array to find any matching exponents. If they match then add it to the coefficient.
 			beqz $t9 cploop3end         # The loop has gone through all remaining terms in the input array
@@ -94,7 +108,7 @@ create_polynomial: # a0 = int[] terms
 			jal create_term
 			move $a0 $s2       # Restores a0
 			move $ra $s3       # Restores ra
-			bnez $v0 cpsucc
+			bgtz $v0 cpsucc
 			j cploop2
 			cpsucc:
 				addi $s4 $s4 1  # Increments num of terms.
@@ -163,6 +177,7 @@ sort_polynomial: # a0 = polynomial addr
 	# Exchange terms by copying the values and swapping them. The pointer is not touched.
 	li $t5 1                   # t5 = flag for how many swaps are performed. This flag is reset every pass and the loop ends when this flag is 0 at the end of the loop.
 	lw $a0 0($a0)              # Loads the addr for the start of the polynomial
+	beqz $a0 spend             # If the polynomial is null, do nothing.
 	move $t8 $a0               # Make a copy of a0 to use for iteration
 	spmain:
 		beqz $t5 spend         # If no swaps are performed, then exit the loop
@@ -193,8 +208,76 @@ sort_polynomial: # a0 = polynomial addr
 add_polynomial:  #a0 = polynomial 1, a1 = polynomial 2
 	# First check for null polynomials, handle them accordingly.
 	# Write both polynomials to the stack, with a (0, -1) term at the end. Call create_polynomial on the stack. Then call sort_polynomial to sort it.
-
-  jr $ra
+	addi $sp $sp -12           # Allocate stack
+	sw $s0 0($sp)              # Preserve s0 on stack
+	sw $s1 4($sp)              # Preserve s1 on stack
+	sw $s2 8($sp)              # Preserve s2 on stack
+	lw $t0 0($a0)              # Loads head pointer of polynomial 1
+	lw $t1 0($a1)              # Loads head pointer of polynomial 2
+	beqz $t0 apnullcheck1
+	beqz $t1 apnullcheck2
+	j apnullpass
+	apnullcheck1:
+		beqz $t1 apbothnull
+		move $v0 $a1                  # Return second polynomial if the second is not null
+	apnullcheck2:
+		move $v0 $a0                  # Return first polynomial, since at this point the first polynomial is known to be not null
+	apbothnull:
+		li $a0 8
+		li $v0 9                      # Syscall, allocates 8 bytes of heap memory
+		syscall                       # Syscall 9 returns address of allocated heap in v0
+		sw $0 0($v0)                  # Sets head pointer to null
+		sw $0 4($v0)                  # Sets num of terms to null
+		jr $ra
+	apnullpass:
+	li $s0 0                   # Zeroes s0. It is used as a counter for the amount of memory allocated in the stack.
+	addi $sp $sp -8            # Allocate another 8 bytes for the terminating term
+	addi $s0 $s0 8             # Increments memory used by 8 bytes
+	sw $0 0($sp)               # Stores 0
+	li $t0 -1
+	sw $t0 4($sp)              # Stores -1
+	move $s1 $a0               # Makes a copy of a0 to use as an address pointer counter
+	lw $s1 0($s1)              # Loads the actual start of polynomial
+	apstorefirst:
+		addi $sp $sp -8        # Allocates 8 bytes to stack
+		addi $s0 $s0 8         # Increments stack memory used counter
+		lw $t1 0($s1)          # Loads first field of the node (Coefficient)
+		lw $t2 4($s1)          # Loads second field of the node (Exponent)
+		sw $t1 0($sp)          # Saves it to stack
+		sw $t2 4($sp)          # Saves it to stack
+		lw $t0 8($s1)          # Loads third field of the node, which is the pointer
+		beqz $t0 apfirstdone   # If no pointer is given, then the polynomial is complete.
+		move $s1 $t0           # Goes to next node in polynomial otherwise
+		j apstorefirst
+	apfirstdone:
+	move $s1 $a1               # Makes a copy of a1 to use as an address pointer counter
+	lw $s1 0($s1)              # Loads the actual start of polynomial
+	apstoresecond:
+		addi $sp $sp -8        # Allocates 8 bytes to stack
+		addi $s0 $s0 8         # Increments stack memory used counter
+		lw $t1 0($s1)          # Loads first field of the node (Coefficient)
+		lw $t2 4($s1)          # Loads second field of the node (Exponent)
+		sw $t1 0($sp)          # Saves it to stack
+		sw $t2 4($sp)          # Saves it to stack
+		lw $t0 8($s1)          # Loads third field of the node, which is the pointer
+		beqz $t0 apseconddone  # If no pointer is given, then the polynomial is complete.
+		move $s1 $t0           # Goes to next node in polynomial otherwise
+		j apstoresecond
+	apseconddone:
+	move $a0 $sp               # Sets arg0 = sp
+	move $s2 $ra               # Preserves ra
+	jal create_polynomial      # Creates the polynomial
+	move $ra $s2               # Restores ra
+	move $a0 $v0               # Sets arg0 = polynomial
+	move $s2 $ra               # Preserves ra
+	jal sort_polynomial        # Sorts the polynomial
+	move $ra $s2               # Restores ra
+	add $sp $sp $s0            # Deallocates stack
+	lw $s0 0($sp)              # Restore s0 from stack
+	lw $s1 4($sp)              # Restore s1 from stack
+	lw $s2 8($sp)              # Restore s2 from stack
+	addi $sp $sp 12            # Deallocate stack
+	jr $ra
 
 .globl mult_polynomial
 mult_polynomial: #a0 = polynomial 1, a1 = polynomial 2
