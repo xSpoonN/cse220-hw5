@@ -218,12 +218,14 @@ add_polynomial:  #a0 = polynomial 1, a1 = polynomial 2
 		jal sort_polynomial
 		move $ra $s0                  # Restores ra
 		move $v0 $a1                  # Return second polynomial if the second is not null
+		jr $ra
 	apnullcheck2:
 		move $s0 $ra                  # Preserves ra
 		move $s1 $a0                  # Preserves a0
 		jal sort_polynomial
 		move $ra $s0                  # Restores ra
 		move $v0 $s1                  # Return first polynomial, since at this point the first polynomial is known to be not null
+		jr $ra
 	apbothnull:
 		li $a0 8
 		li $v0 9                      # Syscall, allocates 8 bytes of heap memory
@@ -290,6 +292,10 @@ mult_polynomial: #a0 = polynomial 1, a1 = polynomial 2
 	sw $s2 8($sp)              # Preserve s2 on stack
 	beqz $a0 mpnull            # If arg0 is null, return a null polynomial
 	beqz $a1 mpnull            # If arg1 is null, return a null polynomial
+	lw $t0 0($a0)              # Loads polynomial start of arg0
+	beqz $t0 mpnull            # If arg0 is null, return a null polynomial
+	lw $t0 0($a1)              # Loads polynomial start of arg0
+	beqz $t0 mpnull            # If arg0 is null, return a null polynomial
 	li $s0 0                   # Zeroes s0. It is used as a counter for the amount of memory allocated in the stack.
 	addi $sp $sp -8            # Allocate another 8 bytes for the terminating term
 	addi $s0 $s0 8             # Increments memory used by 8 bytes
@@ -337,6 +343,10 @@ mult_polynomial: #a0 = polynomial 1, a1 = polynomial 2
 	addi $sp $sp 12            # Deallocate stack
 	jr $ra
 	mpnull:
+		lw $s0 0($sp)              # Restore s0 from stack
+		lw $s1 4($sp)              # Restore s1 from stack
+		lw $s2 8($sp)              # Restore s2 from stack
+		addi $sp $sp 12            # Deallocate stack
 		li $a0 8
 		li $v0 9                      # Syscall, allocates 8 bytes of heap memory
 		syscall                       # Syscall 9 returns address of allocated heap in v0
