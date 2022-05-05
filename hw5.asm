@@ -158,15 +158,44 @@ findterm: #a0 = start of polynomial, a1 = exponent to find
 
 
 .globl sort_polynomial
-sort_polynomial:
-
-
-
-
-
-
-
-  jr $ra
+sort_polynomial: # a0 = polynomial addr
+	# Bubble sort. Keep looping through the list until nothing is changed. (use a flag)
+	# Exchange terms by copying the values and swapping them. The pointer is not touched.
+	addi $sp $sp -12           # Allocate stack
+	sw $s0 0($sp)              # Preserve s0 on stack
+	sw $s1 4($sp)              # Preserve s1 on stack
+	sw $s2 8($sp)              # Preserve s2 on stack
+	li $s0 1                   # s0 = flag for how many swaps are performed. This flag is reset every pass and the loop ends when this flag is 0 at the end of the loop.
+	lw $a0 0($a0)              # Loads the addr for the start of the polynomial
+	move $s1 $a0               # Make a copy of a0 to use for iteration
+	spmain:
+		beqz $s0 spend         # If no swaps are performed, then exit the loop
+		move $s1 $a0           # Resets polynomial base pointer
+		li $s0 0               # Resets swap counter
+		spsub:
+			lw $s2 8($s1)      # Loads the pointer field of the node
+			beqz $s2 spmain  # If no pointer exists, then this is the final node of the polynomial
+			lw $t3 4($s1)      # Loads exponent of the current node
+			lw $t4 4($s2)      # Loads exponent of next node.
+			blt $t3 $t4 spswap # If this node's exponent is less than the next's, perform a swap
+			spback:
+			move $s1 $s2       # Moves to next node in linked list
+			j spsub
+			spswap:
+				lw $t0 0($s1)  # Loads coefficent of current node
+				lw $t1 0($s2)  # Loads coefficent of next node
+				sw $t1 0($s1)  # Saves next coefficent as this coefficent
+				sw $t0 0($s2)  # Saves this coefficent as next coefficent
+				sw $t4 4($s1)  # Saves next exponent as this exponent
+				sw $t3 4($s2)  # Saves this exponent as next exponent
+				addi $s0 $s0 1 # Increments swap counter
+				j spback
+	spend:
+		lw $s0 0($sp)              # Restores s0 from stack
+		lw $s1 4($sp)              # Restores s1 from stack
+		lw $s2 8($sp)              # Restores s2 from stack
+		addi $sp $sp 12            # Deallocate stack
+  		jr $ra
 
 .globl add_polynomial
 add_polynomial:
