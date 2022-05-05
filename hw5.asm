@@ -161,46 +161,45 @@ findterm: #a0 = start of polynomial, a1 = exponent to find
 sort_polynomial: # a0 = polynomial addr
 	# Bubble sort. Keep looping through the list until nothing is changed. (use a flag)
 	# Exchange terms by copying the values and swapping them. The pointer is not touched.
-	addi $sp $sp -12           # Allocate stack
-	sw $s0 0($sp)              # Preserve s0 on stack
-	sw $s1 4($sp)              # Preserve s1 on stack
-	sw $s2 8($sp)              # Preserve s2 on stack
-	li $s0 1                   # s0 = flag for how many swaps are performed. This flag is reset every pass and the loop ends when this flag is 0 at the end of the loop.
+	li $t5 1                   # t5 = flag for how many swaps are performed. This flag is reset every pass and the loop ends when this flag is 0 at the end of the loop.
 	lw $a0 0($a0)              # Loads the addr for the start of the polynomial
-	move $s1 $a0               # Make a copy of a0 to use for iteration
+	move $t8 $a0               # Make a copy of a0 to use for iteration
 	spmain:
-		beqz $s0 spend         # If no swaps are performed, then exit the loop
-		move $s1 $a0           # Resets polynomial base pointer
-		li $s0 0               # Resets swap counter
+		beqz $t5 spend         # If no swaps are performed, then exit the loop
+		move $t8 $a0           # Resets polynomial base pointer
+		li $t5 0               # Resets swap counter
 		spsub:
-			lw $s2 8($s1)      # Loads the pointer field of the node
-			beqz $s2 spmain  # If no pointer exists, then this is the final node of the polynomial
-			lw $t3 4($s1)      # Loads exponent of the current node
-			lw $t4 4($s2)      # Loads exponent of next node.
+			lw $t9 8($t8)      # Loads the pointer field of the node
+			beqz $t9 spmain  # If no pointer exists, then this is the final node of the polynomial
+			lw $t3 4($t8)      # Loads exponent of the current node
+			lw $t4 4($t9)      # Loads exponent of next node.
 			blt $t3 $t4 spswap # If this node's exponent is less than the next's, perform a swap
 			spback:
-			move $s1 $s2       # Moves to next node in linked list
+			move $t8 $t9       # Moves to next node in linked list
 			j spsub
 			spswap:
-				lw $t0 0($s1)  # Loads coefficent of current node
-				lw $t1 0($s2)  # Loads coefficent of next node
-				sw $t1 0($s1)  # Saves next coefficent as this coefficent
-				sw $t0 0($s2)  # Saves this coefficent as next coefficent
-				sw $t4 4($s1)  # Saves next exponent as this exponent
-				sw $t3 4($s2)  # Saves this exponent as next exponent
-				addi $s0 $s0 1 # Increments swap counter
+				lw $t0 0($t8)  # Loads coefficent of current node
+				lw $t1 0($t9)  # Loads coefficent of next node
+				sw $t1 0($t8)  # Saves next coefficent as this coefficent
+				sw $t0 0($t9)  # Saves this coefficent as next coefficent
+				sw $t4 4($t8)  # Saves next exponent as this exponent
+				sw $t3 4($t9)  # Saves this exponent as next exponent
+				addi $t5 $t5 1 # Increments swap counter
 				j spback
 	spend:
-		lw $s0 0($sp)              # Restores s0 from stack
-		lw $s1 4($sp)              # Restores s1 from stack
-		lw $s2 8($sp)              # Restores s2 from stack
-		addi $sp $sp 12            # Deallocate stack
   		jr $ra
 
 .globl add_polynomial
-add_polynomial:
+add_polynomial:  #a0 = polynomial 1, a1 = polynomial 2
+	# First check for null polynomials, handle them accordingly.
+	# Write both polynomials to the stack, with a (0, -1) term at the end. Call create_polynomial on the stack. Then call sort_polynomial to sort it.
+
   jr $ra
 
 .globl mult_polynomial
-mult_polynomial:
+mult_polynomial: #a0 = polynomial 1, a1 = polynomial 2
+	# First check for null polynomials, handle them accordingly.
+	# Use 2 nested loops to multiply every term of polynomial 1 with every term of polynomial 2, storing their result in the stack.
+	# Call create_polynomial on the stack. Then call sort_polynomial to sort it.
+	
   jr $ra
